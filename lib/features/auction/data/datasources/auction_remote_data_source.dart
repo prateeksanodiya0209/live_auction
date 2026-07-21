@@ -9,8 +9,8 @@ class AuctionRemoteDataSource {
   AuctionRemoteDataSource({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  // Stream of all products (with automatic winner declaration check)
-  Stream<List<ProductModel>> getProductsStream({String? category, String? status}) {
+  // Stream of all products (with automatic winner declaration check and pagination limit)
+  Stream<List<ProductModel>> getProductsStream({String? category, String? status, int? limit}) {
     Query query = _firestore.collection('products').orderBy('createdAt', descending: true);
 
     if (category != null && category.isNotEmpty && category != 'All') {
@@ -18,6 +18,9 @@ class AuctionRemoteDataSource {
     }
     if (status != null && status.isNotEmpty) {
       query = query.where('auctionStatus', isEqualTo: status);
+    }
+    if (limit != null) {
+      query = query.limit(limit);
     }
 
     return query.snapshots().map((snapshot) {

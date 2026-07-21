@@ -8,10 +8,18 @@ final auctionRemoteDataSourceProvider = Provider<AuctionRemoteDataSource>((ref) 
   return AuctionRemoteDataSource();
 });
 
+// StateProvider for paginated limits on product list
+final productsLimitProvider = StateProvider<int>((ref) => 4);
+
 // Stream of products filtered by category & status
 final productsStreamProvider = StreamProvider.family<List<ProductModel>, ({String? category, String? status})>((ref, filter) {
   final dataSource = ref.watch(auctionRemoteDataSourceProvider);
-  return dataSource.getProductsStream(category: filter.category, status: filter.status);
+  final limit = ref.watch(productsLimitProvider);
+  return dataSource.getProductsStream(
+    category: filter.category, 
+    status: filter.status, 
+    limit: limit,
+  );
 });
 
 // Stream of a single product

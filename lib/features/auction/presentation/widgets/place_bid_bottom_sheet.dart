@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:live_auction/core/constants/app_colors.dart';
 import 'package:live_auction/features/auction/data/models/product_model.dart';
 import 'package:live_auction/features/auction/presentation/providers/auction_providers.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:live_auction/features/auth/data/models/user_model.dart';
 import 'package:live_auction/features/auth/presentation/providers/auth_provider.dart';
 import 'package:live_auction/shared/widgets/custom_button.dart';
 
@@ -49,7 +51,18 @@ class _PlaceBidBottomSheetState extends ConsumerState<PlaceBidBottomSheet> {
   }
 
   Future<void> _submitBid() async {
-    final user = ref.read(authControllerProvider).user;
+    UserModel? user = ref.read(authControllerProvider).user;
+    final fbUser = FirebaseAuth.instance.currentUser;
+
+    if (user == null && fbUser != null) {
+      ref.read(authControllerProvider.notifier).loadUserProfile(fbUser.uid);
+      user = UserModel(
+        uid: fbUser.uid,
+        name: fbUser.displayName ?? fbUser.email?.split('@').first ?? 'Bidding User',
+        email: fbUser.email ?? '',
+      );
+    }
+
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please sign in to place a bid')),

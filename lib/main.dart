@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:live_auction/core/theme/app_theme.dart';
 import 'package:live_auction/features/auth/presentation/screens/splash_screen.dart';
+import 'package:live_auction/features/notification/data/datasources/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,8 +23,21 @@ void main() async {
   );
 }
 
-class LiveAuctionApp extends StatelessWidget {
+class LiveAuctionApp extends ConsumerStatefulWidget {
   const LiveAuctionApp({super.key});
+
+  @override
+  ConsumerState<LiveAuctionApp> createState() => _LiveAuctionAppState();
+}
+
+class _LiveAuctionAppState extends ConsumerState<LiveAuctionApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PushNotificationService().initialize(context);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

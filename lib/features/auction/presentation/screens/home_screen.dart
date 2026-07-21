@@ -6,6 +6,7 @@ import 'package:live_auction/features/auction/presentation/widgets/product_card.
 import 'package:live_auction/features/auth/presentation/providers/auth_provider.dart';
 import 'package:live_auction/features/auth/presentation/screens/login_screen.dart';
 import 'package:live_auction/features/notification/presentation/screens/notification_screen.dart';
+import 'package:live_auction/features/notification/data/datasources/push_notification_service.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -16,6 +17,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final List<String> _categories = ['All', 'Watches', 'Electronics', 'Collectibles', 'Vehicles'];
   String _selectedStatus = 'live'; // 'live', 'upcoming', 'ended'
 
@@ -27,6 +29,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final user = ref.read(authControllerProvider).user;
       if (user != null) {
         ref.read(auctionRemoteDataSourceProvider).seedFullTestingData(user.uid, user.name);
+        PushNotificationService().listenToRealTimeNotifications(user.uid);
+      }
+    });
+
+    // Handle Infinite Scrolling Pagination
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+        final currentLimit = ref.read(productsLimitProvider);
+        final selectedCategory = ref.read(selectedCategoryProvider);
+        final loadedCount = ref.read(productsStreamProvider((category: selectedCategory, status: _selectedStatus))).value?.length ?? 0;
+
+        // If we loaded exactly the limit, there might be more items to fetch
+        if (loadedCount >= currentLimit) {
+          ref.read(productsLimitProvider.notifier).state = currentLimit + 4;
+        }
       }
     });
   }
@@ -34,6 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -43,6 +61,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final user = authState.user;
     final selectedCategory = ref.watch(selectedCategoryProvider);
     final searchQuery = ref.watch(searchQueryProvider);
+    final currentLimit = ref.watch(productsLimitProvider);
 
     final productsAsync = ref.watch(
       productsStreamProvider((category: selectedCategory, status: _selectedStatus)),
@@ -125,6 +144,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: () async {
               if (user != null) {
                 await ref.read(auctionRemoteDataSourceProvider).seedFullTestingData(user.uid, user.name);
+                ref.read(productsLimitProvider.notifier).state = 4;
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -158,6 +178,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       body: CustomScrollView(
+        controller: _scrollController,
         slivers: [
           // Header User Card & Search
           SliverToBoxAdapter(
@@ -237,6 +258,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           setState(() {
                             _selectedStatus = 'live';
                           });
+                          ref.read(productsLimitProvider.notifier).state = 4;
                         },
                       ),
                       const SizedBox(width: 8),
@@ -247,6 +269,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           setState(() {
                             _selectedStatus = 'upcoming';
                           });
+                          ref.read(productsLimitProvider.notifier).state = 4;
                         },
                       ),
                       const SizedBox(width: 8),
@@ -257,6 +280,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           setState(() {
                             _selectedStatus = 'ended';
                           });
+                          ref.read(productsLimitProvider.notifier).state = 4;
                         },
                       ),
                     ],
@@ -278,6 +302,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           selected: isSel,
                           onSelected: (_) {
                             ref.read(selectedCategoryProvider.notifier).state = cat;
+                            ref.read(productsLimitProvider.notifier).state = 4;
                           },
                           selectedColor: AppColors.primary,
                           backgroundColor: AppColors.surfaceLight,
@@ -343,18 +368,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 );
               }
 
+              final showLoadingIndicator = filtered.length >= currentLimit;
+
               return SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
+                      if (index == filtered.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24.0),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
                       final product = filtered[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 20.0),
                         child: ProductCard(product: product),
                       );
                     },
-                    childCount: filtered.length,
+                    childCount: filtered.length + (showLoadingIndicator ? 1 : 0),
                   ),
                 ),
               );
@@ -389,25 +431,26 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.surfaceLight : AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 1.5 : 1.0,
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.surfaceLight : AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? AppColors.primary : AppColors.border,
+            ),
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? AppColors.primary : AppColors.textSecondary,
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            ),
           ),
         ),
       ),

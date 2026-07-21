@@ -4,6 +4,7 @@ import 'package:live_auction/features/auth/data/datasources/auth_remote_data_sou
 import 'package:live_auction/features/auth/data/models/user_model.dart';
 import 'package:live_auction/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:live_auction/features/auth/domain/repositories/auth_repository.dart';
+import 'package:live_auction/features/notification/data/datasources/push_notification_service.dart';
 
 // Providers
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
@@ -48,13 +49,23 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
 
-  AuthNotifier(this._repository) : super(const AuthState());
+  AuthNotifier(this._repository) : super(const AuthState()) {
+    _initUser();
+  }
+
+  void _initUser() {
+    final fbUser = _repository.currentUser;
+    if (fbUser != null) {
+      loadUserProfile(fbUser.uid);
+    }
+  }
 
   Future<bool> signIn(String email, String password) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final user = await _repository.signIn(email: email, password: password);
       state = state.copyWith(isLoading: false, user: user);
+      PushNotificationService().updateDeviceToken(user.uid);
       return true;
     } on FirebaseAuthException catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: _getReadableErrorMessage(e.code));
@@ -80,6 +91,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password,
       );
       state = state.copyWith(isLoading: false, user: user);
+      PushNotificationService().updateDeviceToken(user.uid);
       return true;
     } on FirebaseAuthException catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: _getReadableErrorMessage(e.code));
@@ -101,6 +113,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final user = await _repository.getUserProfile(uid);
       state = state.copyWith(isLoading: false, user: user);
+      if (user != null) {
+        PushNotificationService().updateDeviceToken(user.uid);
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
