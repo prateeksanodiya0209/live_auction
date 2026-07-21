@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection:
+    // - Authenticated users can read any user profile (e.g. to see bidder names)
+    // - Users can create or update their own user document
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Auctions & Bids:
+    // - Authenticated users can read and write live auction items & bids
+    match /auctions/{auctionId} {
+      allow read, write: if request.auth != null;
+
+      match /{subcollection=**} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // General fallback for development (all authenticated users):
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

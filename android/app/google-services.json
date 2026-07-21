@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "774265254099",
+    "project_id": "liveauction-app-flutter",
+    "storage_bucket": "liveauction-app-flutter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:774265254099:android:418812da8b6d79fd902426",
+        "android_client_info": {
+          "package_name": "com.example.live_auction"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "774265254099-sguced3e2epff5n05fobo48gk59bv0ag.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAi-Tt3QJsl459j1fGhbVV4zR4yvaw1JOY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "774265254099-sguced3e2epff5n05fobo48gk59bv0ag.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
